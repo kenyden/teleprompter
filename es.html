@@ -617,6 +617,11 @@ setTimeout(()=>{
   if(!paras.length)showHint('Pulsa <b>E</b> para pegar tu guion, o <b>S</b> para ajustes');
   else showHint('Pulsa <b>ESPACIO</b> para empezar · <b>PageDown</b> salta párrafo · <b>+</b>/<b>−</b> tamaño · <b>T</b> tema · <b>S</b> ajustes',5200);
 },700);
+
+/* ============ 離線快取（僅 https 部署版） ============ */
+if('serviceWorker' in navigator && location.protocol === 'https:'){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
 </script>
 </body>
 </html>

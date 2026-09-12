@@ -654,6 +654,11 @@ setTimeout(()=>{
   if(!paras.length)showHint('按 <b>E</b> 貼上稿子，或 <b>S</b> 開啟設定');
   else showHint('按 <b>空白</b> 開始 · <b>PageDown</b> 跳段 · <b>+</b>/<b>−</b> 字級 · <b>T</b> 主題 · <b>S</b> 設定',5200);
 },700);
+
+/* ============ 離線快取（僅 https 部署版） ============ */
+if('serviceWorker' in navigator && location.protocol === 'https:'){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
 </script>
 </body>
 </html>
