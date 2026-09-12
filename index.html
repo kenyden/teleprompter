@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="提詞器">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAACa0lEQVR42u3dsUkEQRSA4bnB9LQAA2ObEANBEzmwF0NBMLQXQUwUDMQmjA1s4CowMzoUZHdm3tvvK0Dl+fOcm11wtV4fFNilGgHiQByIA3EgDsSBOBAH4kAcIA7EgTgQB+JAHIgDcSAOxAHiQByIA3EgDsSBOBAH4kAcIA7EgTgQB+JAHIgDcSAOxMFy7U3+FbenJ8bay/7b+7ibQxl9TTv/qgx9OHPQNY5p/+DR/bdQRz4Q0Xf+K/9vBWcOxIE4EAfiQByIA3EgDsQB4qD0exPsx9fnh/lO7vDouNn3muXBmyxyJFKVEVGbIVdl6MOBlK5xWBvJlofNgTgQB4PG0fJ+hgYDtzloFYflkemStIa+/FdGCfdsxbWHB284cyAOEAfiQByIA3FQFvD2+evzg+HudHZxtejNoYwcw6nK0EejOJSRaVBVGfrwaQVxIA7EQZY4Al3vFLdh7TeHPjINqi75elgZHc4c+sgxHC8Y49MK4kAciANxIA7EQfGC8V9ub67N95+ju7svWS/BZJEjkaqMcePoPcmqDH04kNI1Dmsj2fKwORAH4mDUM8cYVzduO2wOwt1zWB6J5lmzPhdQRhn5BWPXHh684cyBOEAciANxIA7EQUn99vnm8jziOB6fXjQx7+YIWkbonzxGHNHnq4+54sgxWX1MH0emmerDpxXEgTgQBwHjyHSD5DZs+s2RY6bKmOvPSvTJKmPeM0fc+SqjeMEYn1YQB+JAHIgDcSAOxIE4QByIA3EgDsSBOBAH4kAciANxgDgQB+JAHIgDcSAOxIE4EAeIA3EgDsSBOBAH4kAciANxgDj41Tcj9X4DRQll4gAAAABJRU5ErkJggg==">
+<title>提詞器</title>
+<style>
+:root{
+  --font:"Segoe UI","Microsoft JhengHei","PingFang TC","Noto Sans TC","Helvetica Neue",Arial,sans-serif;
+  --bg:#0a0a0b; --fg:#e9e5dd; --dim:#7c7873; --rule:#ff4d4d; --head:#ffd479;
+  --ui:#131315; --ui2:#1c1c20; --bd:#2d2d33; --acc:#7aa2f7;
+  --size:64px; --lh:1.6; --col:34ch; --anchor:0.38;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);overflow:hidden;-webkit-font-smoothing:antialiased;overscroll-behavior:none;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+
+/* ---------- 舞台 ---------- */
+#stage{position:fixed;inset:0;overflow:hidden}
+#stage.mirror{transform:scaleX(-1)}
+#script{
+  position:absolute;left:0;right:0;top:0;
+  padding-top:calc(var(--anchor) * 100vh);
+  padding-bottom:calc((1 - var(--anchor)) * 100vh);
+  will-change:transform;transform:translate3d(0,0,0);
+}
+#script .inner{max-width:var(--col);margin:0 auto;padding:0 44px;font-size:var(--size)}
+#script p{
+  font-size:var(--size);line-height:var(--lh);font-weight:400;
+  margin:0 0 .8em;letter-spacing:.004em;overflow-wrap:break-word;
+}
+#script p.head{font-weight:700;color:var(--head);margin-top:1.2em}
+
+#vig{position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(to bottom,var(--bg) 0%,transparent 16%,transparent 80%,var(--bg) 100%)}
+#rule{position:absolute;left:0;right:0;top:calc(var(--anchor)*100%);height:1px;
+  background:var(--rule);opacity:.45;pointer-events:none}
+#rule::before{content:"";position:absolute;left:36px;top:-6px;width:0;height:0;
+  border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid var(--rule);opacity:.85}
+
+/* ---------- HUD ---------- */
+#hud{position:absolute;left:0;right:0;bottom:var(--hudb);display:flex;gap:24px;justify-content:center;
+  padding:16px 20px;font-size:13px;color:var(--dim);
+  background:linear-gradient(to top,var(--bg) 45%,transparent);
+  transition:opacity .35s;pointer-events:none;font-variant-numeric:tabular-nums}
+#hud.hide{opacity:0}
+#hud b{color:var(--fg);font-weight:500}
+
+/* ---------- 提示 ---------- */
+#hint{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);
+  background:var(--ui2);border:1px solid var(--bd);border-radius:8px;
+  padding:12px 20px;font-size:13px;color:var(--dim);z-index:15;
+  opacity:0;transition:opacity .5s;pointer-events:none;white-space:nowrap}
+#hint.on{opacity:1}
+#hint b{color:var(--acc);font-weight:500}
+
+/* ---------- 面板 ---------- */
+#panel{position:fixed;top:0;right:0;bottom:0;width:340px;background:var(--ui);
+  border-left:1px solid var(--bd);transform:translateX(101%);
+  transition:transform .26s cubic-bezier(.4,0,.2,1);overflow-y:auto;z-index:20;padding:20px 24px 60px}
+#panel.open{transform:translateX(0)}
+#panel h2{font-size:15px;font-weight:600;margin-bottom:16px;color:var(--fg);
+  display:flex;justify-content:space-between;align-items:center}
+#panel h2 span{font-size:12px;color:var(--dim);font-weight:400}
+.grp{margin-bottom:22px}
+.grp>label{display:block;font-size:11px;letter-spacing:.12em;color:var(--dim);
+  text-transform:uppercase;margin-bottom:9px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px;font-size:13px}
+.row input[type=range]{flex:1;accent-color:var(--acc);height:18px}
+.row .val{min-width:56px;text-align:right;color:var(--fg);font-variant-numeric:tabular-nums;font-size:12px}
+.seg{display:flex;border:1px solid var(--bd);border-radius:7px;overflow:hidden}
+.seg button{flex:1;background:none;border:none;color:var(--dim);padding:8px 4px;
+  font-size:12.5px;cursor:pointer;font-family:var(--font);transition:.15s}
+.seg button.on{background:var(--ui2);color:var(--acc)}
+.seg button:hover{color:var(--fg)}
+.btn{width:100%;background:var(--ui2);border:1px solid var(--bd);color:var(--fg);
+  padding:9px;border-radius:7px;font-size:13px;cursor:pointer;font-family:var(--font);transition:.15s}
+.btn:hover{border-color:var(--acc);color:var(--acc)}
+.btns{display:flex;gap:8px}
+.scriptlist{border:1px solid var(--bd);border-radius:7px;overflow:hidden;max-height:220px;overflow-y:auto}
+.scriptlist .it{padding:9px 11px;font-size:12.5px;cursor:pointer;border-bottom:1px solid var(--bd);
+  display:flex;justify-content:space-between;gap:8px;color:var(--dim)}
+.scriptlist .it:last-child{border-bottom:none}
+.scriptlist .it:hover{background:var(--ui2);color:var(--fg)}
+.scriptlist .it.on{color:var(--acc);background:var(--ui2)}
+.scriptlist .it .del{color:#c05a5a;opacity:.6;flex:0 0 auto}
+.scriptlist .it .del:hover{opacity:1}
+.keys{font-size:12.5px;line-height:2.05;color:var(--dim)}
+.keys kbd{background:var(--ui2);border:1px solid var(--bd);border-bottom-width:2px;
+  border-radius:4px;padding:1px 6px;font-family:inherit;font-size:11px;color:var(--fg);margin-right:6px}
+
+/* ---------- 編輯器 ---------- */
+#editor{position:fixed;inset:0;background:var(--bg);z-index:30;display:none;flex-direction:column;padding:22px}
+#editor.open{display:flex}
+#editor .bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+#editor .bar h3{font-size:15px;font-weight:600}
+#editor .bar .r{display:flex;gap:9px}
+#editor textarea{flex:1;background:var(--ui);color:var(--fg);border:1px solid var(--bd);
+  border-radius:8px;padding:18px;font-family:var(--font);font-size:16px;line-height:1.75;
+  resize:none;outline:none;tab-size:2}
+#editor textarea:focus{border-color:var(--acc)}
+#editor .tip{font-size:12px;color:var(--dim);margin-top:10px;line-height:1.7}
+#editor .tip code{background:var(--ui2);padding:1px 5px;border-radius:3px;color:var(--acc)}
+
+/* ---------- 倒數 ---------- */
+#cd{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.82);z-index:40;font-size:20vh;font-weight:700;color:#fff;
+  font-variant-numeric:tabular-nums}
+#cd.on{display:flex}
+
+/* ---------- 觸控控制列（iPad / 手機） ---------- */
+#touchbar{position:fixed;left:0;right:0;bottom:0;display:none;gap:7px;z-index:25;
+  padding:9px 11px calc(9px + env(safe-area-inset-bottom));
+  background:linear-gradient(to top,rgba(6,6,8,.97),rgba(6,6,8,.72));
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+#touchbar.on{display:flex}
+#touchbar button{flex:1;height:56px;border-radius:11px;color:#fff;font-family:var(--font);
+  background:rgba(255,255,255,.11);border:1px solid rgba(255,255,255,.17);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  -webkit-tap-highlight-color:transparent;cursor:pointer;padding:0}
+#touchbar button:active{background:rgba(255,255,255,.30)}
+#touchbar button i{font-style:normal;font-size:19px;line-height:1}
+#touchbar button b{font-weight:400;font-size:9.5px;opacity:.60;letter-spacing:.02em}
+body{--hudb:0px}
+@media (max-width:430px){
+  #panel{width:100%}
+  #touchbar button{height:52px;border-radius:9px}
+  #touchbar button b{font-size:9px}
+  #hud{gap:12px;font-size:11.5px;padding:11px 12px}
+  #hud .hs{display:none}
+  #editor{padding:14px}
+  #editor textarea{font-size:16px;padding:13px}
+}
+
+/* ---------- 淺色主題 ---------- */
+body.light{--bg:#f7f6f3;--fg:#1b1b1a;--dim:#8a857e;--ui:#ffffff;--ui2:#f0eee9;
+  --bd:#ddd9d2;--head:#a36a00;--rule:#d64545;--acc:#2f6fdd}
+body.amber{--bg:#0d0a06;--fg:#ffb84d;--dim:#8a713f;--ui:#151009;--ui2:#1f1810;
+  --bd:#3a2d19;--head:#ffd479;--rule:#ff8a3d;--acc:#ffb84d}
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div id="script"><div class="inner"></div></div>
+  <div id="vig"></div>
+  <div id="rule"></div>
+</div>
+
+<div id="hud">
+  <span><b id="hSpeed">16</b> 行/分</span>
+  <span class="hs"><b id="hSize">64</b> px</span>
+  <span><b id="hPara">1 / 1</b> 段</span>
+  <span><b id="hTime">00:00</b></span>
+  <span>全文 <b id="hEta">—</b></span>
+</div>
+
+<div id="hint"></div>
+
+<div id="panel">
+  <h2>設定 <span>S</span></h2>
+
+  <div class="grp">
+    <label>播放模式</label>
+    <div class="seg" id="segMode">
+      <button data-m="scroll">連續捲動</button>
+      <button data-m="step">段落步進</button>
+    </div>
+    <div class="row" style="margin-top:11px">
+      <span>捲動速度</span>
+      <input type="range" id="rSpeed" min="4" max="60" step="1">
+      <span class="val" id="vSpeed">16</span>
+    </div>
+    <div class="row">
+      <span>目標時長</span>
+      <input type="text" id="tTarget" placeholder="5:30" style="flex:1;min-width:0;background:var(--ui2);border:1px solid var(--bd);border-radius:6px;color:var(--fg);padding:6px 9px;font-family:var(--font);font-size:12.5px;outline:none;text-align:center">
+      <button class="btn" id="bTarget" style="width:auto;padding:6px 13px">套用</button>
+    </div>
+    <div class="row">
+      <span>開錄倒數</span>
+      <div class="seg" id="segCd" style="width:110px">
+        <button data-c="1">開</button>
+        <button data-c="0">關</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grp">
+    <label>顯示</label>
+    <div class="row"><span>字級</span><input type="range" id="rSize" min="24" max="160" step="2"><span class="val" id="vSize">64</span></div>
+    <div class="row"><span>行距</span><input type="range" id="rLh" min="1.1" max="2.4" step="0.05"><span class="val" id="vLh">1.60</span></div>
+    <div class="row"><span>欄寬</span><input type="range" id="rCol" min="16" max="80" step="1"><span class="val" id="vCol">34</span></div>
+    <div class="row"><span>基準線</span><input type="range" id="rAnchor" min="10" max="70" step="1"><span class="val" id="vAnchor">38%</span></div>
+    <div class="row">
+      <span>主題</span>
+      <div class="seg" id="segTheme" style="width:170px">
+        <button data-t="dark">深色</button>
+        <button data-t="light">淺色</button>
+        <button data-t="amber">琥珀</button>
+      </div>
+    </div>
+    <div class="row">
+      <span>鏡像</span>
+      <div class="seg" id="segMirror" style="width:110px">
+        <button data-x="1">開</button>
+        <button data-x="0">關</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grp">
+    <label>腳本</label>
+    <div class="btns" style="margin-bottom:9px">
+      <button class="btn" id="bEdit">編輯 / 貼上</button>
+      <button class="btn" id="bImport">匯入 txt 檔</button>
+    </div>
+    <div class="scriptlist" id="libList"></div>
+    <div class="btns" style="margin-top:9px">
+      <button class="btn" id="bNew">新增腳本</button>
+      <button class="btn" id="bReset">清除全部</button>
+    </div>
+  </div>
+
+  <div class="grp">
+    <label>快捷鍵</label>
+    <div class="keys">
+      <kbd>空白</kbd>開始 / 暫停（步進模式＝下一段）<br>
+      <kbd>PageDown</kbd><kbd>PageUp</kbd>下一段 / 上一段<br>
+      <kbd>↑</kbd><kbd>↓</kbd>速度加減（步進模式＝手動捲行）<br>
+      <kbd>+</kbd><kbd>−</kbd>字級縮放<br>
+      <kbd>R</kbd>回到頂端　<kbd>F</kbd>全螢幕<br>
+      <kbd>T</kbd>切換主題　<kbd>M</kbd>鏡像<br>
+      <kbd>E</kbd>編輯腳本　<kbd>S</kbd>設定　<kbd>H</kbd>隱藏介面
+    </div>
+  </div>
+</div>
+
+<div id="editor">
+  <div class="bar">
+    <h3>腳本編輯</h3>
+    <div class="r">
+      <button class="btn" id="eSave" style="width:auto;padding:8px 18px">儲存</button>
+      <button class="btn" id="eClose" style="width:auto;padding:8px 18px">關閉</button>
+    </div>
+  </div>
+  <textarea id="eText" spellcheck="false" placeholder="在這裡貼上你的稿子…"></textarea>
+  <div class="tip">
+    一行 = 一段。<code>1. 標題</code> 開頭的行會自動變成標題樣式。<code>*文字*</code> 會變粗體。
+    <br>docx 檔案請先在 Word 全選複製，直接貼到這裡（會自動去掉格式）。
+  </div>
+</div>
+
+<div id="touchbar">
+  <button data-act="prev"><i>|◀</i><b>上一段</b></button>
+  <button data-act="play"><i>❚❚</i><b>播放 / 暫停</b></button>
+  <button data-act="next"><i>▶|</i><b>下一段</b></button>
+  <button data-act="slower"><i>−</i><b>減速</b></button>
+  <button data-act="faster"><i>+</i><b>加速</b></button>
+</div>
+
+<div id="cd"></div>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ============ 狀態 ============ */
+const DEF={mode:'scroll',speed:30,size:64,lh:1.6,col:34,anchor:0.38,
+           theme:'dark',mirror:false,countdown:true};
+let S={...DEF};
+let paras=[],playing=false,offsetY=0,maxY=0,anim=null,elapsed=0,running=false,everRan=false;
+
+const stage=$('#stage'),script=$('#script'),inner=$('#script .inner');
+
+/* ============ 儲存 ============ */
+const KEY='tp.state.v1', LKEY='tp.lib.v1';
+let LIB={items:[],current:null};
+function saveState(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function loadState(){try{const r=localStorage.getItem(KEY);if(r)S={...DEF,...JSON.parse(r)};}catch(e){}}
+function saveLib(){try{localStorage.setItem(LKEY,JSON.stringify(LIB));}catch(e){}}
+function loadLib(){try{const r=localStorage.getItem(LKEY);if(r)LIB=JSON.parse(r);}catch(e){}}
+
+/* ============ 腳本 ============ */
+function buildScript(text){
+  inner.innerHTML='';
+  paras=text.split(/\n+/).map(s=>s.trim()).filter(Boolean);
+  paras.forEach(p=>{
+    const el=document.createElement('p');
+    if(/^\s*\d+\s*[\.、)]\s/.test(p)) el.className='head';
+    el.innerHTML=esc(p).replace(/\*([^*]+)\*/g,'<b>$1</b>');
+    inner.appendChild(el);
+  });
+  measure();offsetY=0;anim=null;apply();
+}
+function measure(){
+  maxY=Math.max(0,script.offsetHeight-stage.clientHeight);
+  offsetY=clamp(offsetY,0,maxY);
+}
+function apply(){script.style.transform='translate3d(0,'+(-offsetY)+'px,0)';}
+
+function calcCur(){
+  const ruleY=offsetY+stage.clientHeight*S.anchor;
+  let i=0;
+  for(let k=0;k<inner.children.length;k++){
+    if(inner.children[k].offsetTop<=ruleY) i=k; else break;
+  }
+  return i;
+}
+function gotoPara(i,smooth){
+  const n=inner.children.length;if(!n)return;
+  i=clamp(i,0,n-1);
+  const el=inner.children[i];
+  const to=clamp(el.offsetTop-stage.clientHeight*S.anchor,0,maxY);
+  if(smooth&&Math.abs(to-offsetY)>2){anim={from:offsetY,to,t:performance.now(),dur:330};}
+  else{offsetY=to;anim=null;apply();}
+}
+
+/* ============ 主迴圈 ============ */
+let last=performance.now();
+function loop(t){
+  const dt=Math.min(0.1,(t-last)/1000);last=t;
+  if(anim){
+    const k=clamp((t-anim.t)/anim.dur,0,1),e=1-Math.pow(1-k,3);
+    offsetY=anim.from+(anim.to-anim.from)*e;
+    if(k>=1)anim=null;
+    apply();
+  }else if(playing&&S.mode==='scroll'){
+    const pxPerSec=S.speed*S.size*S.lh/60;
+    offsetY+=pxPerSec*dt;
+    if(offsetY>=maxY){offsetY=maxY;playing=false;showHint('已到結尾');}
+    apply();
+  }
+  if(running){elapsed+=dt;}
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ============ HUD ============ */
+const fmt=s=>{s=Math.floor(s);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');};
+setInterval(()=>{
+  $('#hSpeed').textContent=S.speed;
+  $('#hSize').textContent=S.size;
+  $('#hPara').textContent=(calcCur()+1)+' / '+(paras.length||1);
+  $('#hTime').textContent=fmt(elapsed);
+  if(paras.length){
+    const tl=inner.scrollHeight/(S.size*S.lh);
+    $('#hEta').textContent=fmt(tl/S.speed*60);
+  }
+},180);
+
+let hintT=null;
+function showHint(msg,ms){
+  const h=$('#hint');h.innerHTML=msg;h.classList.add('on');
+  clearTimeout(hintT);hintT=setTimeout(()=>h.classList.remove('on'),ms||1600);
+}
+
+/* ============ 控制 ============ */
+function setSize(v){S.size=clamp(v,24,160);document.documentElement.style.setProperty('--size',S.size+'px');
+  $('#rSize').value=S.size;$('#vSize').textContent=S.size;measure();apply();saveState();}
+function setLh(v){S.lh=clamp(v,1.1,2.4);document.documentElement.style.setProperty('--lh',S.lh);
+  $('#rLh').value=S.lh;$('#vLh').textContent=S.lh.toFixed(2);measure();apply();saveState();}
+function setCol(v){S.col=clamp(v,16,80);document.documentElement.style.setProperty('--col',S.col+'ch');
+  $('#rCol').value=S.col;$('#vCol').textContent=S.col;measure();apply();saveState();}
+function setAnchor(v){S.anchor=clamp(v,10,70)/100;document.documentElement.style.setProperty('--anchor',S.anchor);
+  $('#rAnchor').value=Math.round(S.anchor*100);$('#vAnchor').textContent=Math.round(S.anchor*100)+'%';
+  measure();apply();saveState();}
+function setSpeed(v){S.speed=clamp(v,4,60);$('#rSpeed').value=S.speed;$('#vSpeed').textContent=S.speed;saveState();}
+function applyTarget(str){
+  const t=String(str).trim();
+  const m=/^(\d+)\s*[:\uff1a]\s*(\d+)$/.exec(t);
+  let sec;
+  if(m) sec=(+m[1])*60+(+m[2]);
+  else if(/^\d+(\.[0-9]+)?$/.test(t)) sec=parseFloat(t)*60;
+  else{showHint('請輸入 <b>5:30</b> 或分鐘數');return;}
+  const tl=inner.scrollHeight/(S.size*S.lh);
+  if(!tl){showHint('還沒有腳本');return;}
+  setSpeed(Math.round(tl/(sec/60)));
+  showHint('已設為 <b>'+S.speed+'</b> 行/分 · 全文約 '+fmt(sec));
+}
+
+function setTheme(t){
+  S.theme=t;document.body.className=t==='dark'?'':t;
+  [...$('#segTheme').children].forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  saveState();
+}
+function setMirror(v){S.mirror=!!v;stage.classList.toggle('mirror',S.mirror);
+  [...$('#segMirror').children].forEach(b=>b.classList.toggle('on',(b.dataset.x==='1')===S.mirror));
+  saveState();}
+function setMode(m){
+  S.mode=m;playing=false;
+  [...$('#segMode').children].forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  saveState();
+}
+function setCd(v){S.countdown=!!v;
+  [...$('#segCd').children].forEach(b=>b.classList.toggle('on',(b.dataset.c==='1')===S.countdown));
+  saveState();}
+
+function reset(){playing=false;offsetY=0;anim=null;elapsed=0;running=false;everRan=false;apply();}
+
+/* ============ 倒數 ============ */
+function countdown(cb){
+  const el=$('#cd');let n=3;el.textContent=n;el.classList.add('on');
+  const t=setInterval(()=>{
+    n--;
+    if(n>0)el.textContent=n;
+    else if(n===0)el.textContent='開始';
+    else{clearInterval(t);el.classList.remove('on');cb();}
+  },700);
+}
+
+/* ============ 鍵盤 ============ */
+let editorOpen=false,panelOpen=false;
+
+document.addEventListener('keydown',e=>{
+  if(editorOpen){if(e.key==='Escape')closeEditor();return;}
+  if(/^(INPUT|TEXTAREA)$/.test(e.target.tagName)&&e.key!=='Escape')return;
+  const k=e.key;
+  if(k==='Enter'&&!panelOpen){e.preventDefault();onSpace();return;}
+  switch(k){
+    case ' ':e.preventDefault();onSpace();break;
+    case 'ArrowUp':e.preventDefault();onUpDown(-1);break;
+    case 'ArrowDown':e.preventDefault();onUpDown(1);break;
+    case 'PageDown':e.preventDefault();if(!(playing&&S.mode==='scroll'))gotoPara(calcCur()+1,true);break;
+    case 'PageUp':e.preventDefault();gotoPara(calcCur()-1,true);break;
+    case '+':case '=':setSize(S.size+8);showHint('字級 '+S.size);break;
+    case '-':case '_':setSize(S.size-8);showHint('字級 '+S.size);break;
+    case 't':case 'T':setTheme(S.theme==='dark'?'light':S.theme==='light'?'amber':'dark');break;
+    case 'm':case 'M':setMirror(!S.mirror);showHint('鏡像 '+(S.mirror?'開':'關'));break;
+    case 'f':case 'F':toggleFull();break;
+    case 'r':case 'R':reset();showHint('已回到頂端');break;
+    case 'e':case 'E':openEditor();break;
+    case 's':case 'S':togglePanel();break;
+    case 'h':case 'H':$('#hud').classList.toggle('hide');break;
+    case 'Home':offsetY=0;anim=null;apply();break;
+    case 'End':offsetY=maxY;anim=null;apply();break;
+    case 'Escape':if(panelOpen)togglePanel();break;
+  }
+});
+
+function onSpace(){
+  if(!paras.length){showHint('還沒有腳本 — 按 <b>E</b> 貼上稿子');return;}
+  if(S.mode==='step'){gotoPara(calcCur()+1,true);return;}
+  if(!playing){
+    if(!everRan&&S.countdown){everRan=true;countdown(()=>{playing=true;running=true;});}
+    else{playing=true;running=true;keepAwake(true);}
+  }else{playing=false;keepAwake(false);}
+}
+function onUpDown(d){
+  if(S.mode==='step'){
+    offsetY=clamp(offsetY+d*S.size*S.lh,0,maxY);anim=null;apply();
+  }else{
+    setSpeed(S.speed+d);
+    showHint('速度 <b>'+S.speed+'</b> 行/分');
+  }
+}
+
+/* ============ 全螢幕 / 面板 / 編輯器 ============ */
+function toggleFull(){
+  if(!document.fullscreenElement)document.documentElement.requestFullscreen().catch(()=>{});
+  else document.exitFullscreen();
+}
+function togglePanel(){panelOpen=!panelOpen;$('#panel').classList.toggle('open',panelOpen);renderLib();}
+function openEditor(){
+  editorOpen=true;$('#eText').value=LIB.items.find(x=>x.id===LIB.current)?.text||'';
+  $('#editor').classList.add('open');$('#eText').focus();
+}
+function closeEditor(){editorOpen=false;$('#editor').classList.remove('open');}
+function saveEditor(){
+  const t=$('#eText').value;
+  let it=LIB.items.find(x=>x.id===LIB.current);
+  if(!it){it={id:'s'+Date.now(),name:'腳本 1',text:t};LIB.items.push(it);LIB.current=it.id;}
+  else it.text=t;
+  saveLib();closeEditor();buildScript(t);elapsed=0;running=false;everRan=false;
+  showHint('已儲存並載入 · '+paras.length+' 段');
+}
+
+/* ============ 腳本庫 ============ */
+function renderLib(){
+  const box=$('#libList');box.innerHTML='';
+  if(!LIB.items.length){box.innerHTML='<div class="it" style="cursor:default">（尚無腳本）</div>';return;}
+  LIB.items.forEach(it=>{
+    const d=document.createElement('div');
+    d.className='it'+(it.id===LIB.current?' on':'');
+    const n=(it.text.match(/\n+/g)||[]).length+1;
+    d.innerHTML='<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+
+      esc(it.name)+' <span style="opacity:.5">· '+n+' 段</span></span><span class="del">刪除</span>';
+    d.onclick=ev=>{
+      if(ev.target.classList.contains('del')){
+        LIB.items=LIB.items.filter(x=>x.id!==it.id);
+        if(LIB.current===it.id){LIB.current=null;buildScript('');}
+        saveLib();renderLib();showHint('已刪除');
+        return;
+      }
+      LIB.current=it.id;saveLib();buildScript(it.text);elapsed=0;running=false;everRan=false;
+      renderLib();showHint('已載入「'+esc(it.name)+'」');
+    };
+    box.appendChild(d);
+  });
+}
+
+/* ============ 接線 ============ */
+$('#rSpeed').oninput=e=>setSpeed(+e.target.value);
+$('#rSize').oninput=e=>setSize(+e.target.value);
+$('#rLh').oninput=e=>setLh(+e.target.value);
+$('#rCol').oninput=e=>setCol(+e.target.value);
+$('#rAnchor').oninput=e=>setAnchor(+e.target.value);
+$('#segMode').onclick=e=>{if(e.target.dataset.m)setMode(e.target.dataset.m);};
+$('#segTheme').onclick=e=>{if(e.target.dataset.t)setTheme(e.target.dataset.t);};
+$('#segMirror').onclick=e=>{if(e.target.dataset.x)setMirror(e.target.dataset.x==='1');};
+$('#segCd').onclick=e=>{if(e.target.dataset.c)setCd(e.target.dataset.c==='1');};
+$('#bTarget').onclick=()=>applyTarget($('#tTarget').value);
+$('#tTarget').onkeydown=e=>{if(e.key==='Enter')applyTarget(e.target.value);};
+$('#bEdit').onclick=openEditor;
+$('#eSave').onclick=saveEditor;
+$('#eClose').onclick=closeEditor;
+$('#bNew').onclick=()=>{
+  const it={id:'s'+Date.now(),name:'腳本 '+(LIB.items.length+1),text:''};
+  LIB.items.push(it);LIB.current=it.id;saveLib();renderLib();openEditor();
+};
+$('#bReset').onclick=()=>{
+  if(!confirm('清除所有腳本？此動作無法復原。'))return;
+  LIB={items:[],current:null};saveLib();buildScript('');renderLib();showHint('已清除');
+};
+$('#bImport').onclick=()=>{
+  const f=document.createElement('input');f.type='file';f.accept='.txt,text/plain';
+  f.onchange=()=>{
+    const file=f.files[0];if(!file)return;
+    const r=new FileReader();
+    r.onload=()=>{
+      const it={id:'s'+Date.now(),name:file.name.replace(/\.txt$/i,''),text:r.result};
+      LIB.items.push(it);LIB.current=it.id;saveLib();buildScript(r.result);
+      renderLib();showHint('已匯入「'+esc(it.name)+'」');
+    };
+    r.readAsText(file,'UTF-8');
+  };
+  f.click();
+};
+$('#stage').addEventListener('wheel',e=>{
+  if(editorOpen)return;
+  e.preventDefault();
+  offsetY=clamp(offsetY+e.deltaY*(e.deltaMode?1:0.6),0,maxY);anim=null;apply();
+},{passive:false});
+window.addEventListener('resize',()=>{measure();apply();});
+document.addEventListener('fullscreenchange',()=>{});
+
+/* ============ 觸控控制列（iPad / 手機） ============ */
+const isTouch = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+let wakeLock = null;
+
+async function keepAwake(on){
+  try{
+    if(on && 'wakeLock' in navigator && !wakeLock){
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', ()=>{ wakeLock = null; });
+    } else if(!on && wakeLock){
+      await wakeLock.release(); wakeLock = null;
+    }
+  }catch(e){ /* 不支援時靜默略過 */ }
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible' && playing) keepAwake(true);
+});
+
+function setTouchbar(on){
+  document.querySelector('#touchbar').classList.toggle('on', on);
+  document.body.style.setProperty('--hudb', on ? '86px' : '0px');
+}
+if(isTouch){
+  setTouchbar(true);
+  $('#stage').addEventListener('click', ()=>{
+    if(document.querySelector('#editor').classList.contains('open')) return;
+    setTouchbar(!document.querySelector('#touchbar').classList.contains('on'));
+  });
+  document.querySelector('#touchbar').addEventListener('click', ev=>{
+    const b = ev.target.closest('button'); if(!b) return;
+    ev.stopPropagation();
+    switch(b.dataset.act){
+      case 'prev':   gotoPara(calcCur()-1, true); break;
+      case 'next':   gotoPara(calcCur()+1, true); break;
+      case 'play':   onSpace(); break;
+      case 'slower': setSpeed(S.speed-1); showHint('− '+S.speed); break;
+      case 'faster': setSpeed(S.speed+1); showHint('+ '+S.speed); break;
+    }
+  });
+  // 播放時同步圖示
+  setInterval(()=>{
+    const b = document.querySelector('#touchbar button[data-act="play"] i');
+    if(b) b.textContent = playing ? '❚❚' : '▶';
+  }, 200);
+}
+
+/* ============ 啟動 ============ */
+loadState();loadLib();
+setMode(S.mode);setTheme(S.theme);setMirror(S.mirror);setCd(S.countdown);
+setSpeed(S.speed);setSize(S.size);setLh(S.lh);setCol(S.col);setAnchor(Math.round(S.anchor*100));
+
+// 窄螢幕自動適配（僅首次使用，之後不覆寫使用者設定）
+if(isTouch && window.innerWidth < 520 && !S.fitted){
+  // 窄螢幕首次自動適配字級與基準線
+  setSize(Math.max(28, Math.min(56, Math.round(window.innerWidth / 10))));
+  setAnchor(44);
+  S.fitted = true; saveState();
+}
+
+const SEED=`Hola a todos, soy Lin y hoy voy a hablar sobre Erich Fromm.
+1.  Aspectos principales de su teoría
+Uno de los puntos centrales de Fromm son las necesidades humanas.
+Él plantea que los seres humanos nos hemos separado del mundo natural. A diferencia de los animales, no contamos con grandes defensas físicas ni con instintos suficientemente fuertes para indicarnos cómo sobrevivir. Sin embargo, tenemos una característica muy importante: la razón.
+La razón nos permite crear herramientas, desarrollar tecnología y encontrar diferentes maneras de sobrevivir. Pero también nos hace conscientes de nuestra separación de la naturaleza, lo que puede producir inseguridad, soledad y ansiedad.
+Si no podemos satisfacer las necesidades de una manera saludable, pueden convertirse en una fuente de problemas psicológicos.
+Entre las necesidades fisiológicas encontramos comer, dormir y defecar. Pero Fromm señala que las necesidades humanas van más allá de la supervivencia física.
+Él plantea *cinco necesidades humanas principales: *
+La relación, que es la necesidad de establecer vínculos con otras personas. Fromm diferencia una relación de dependencia de un amor sano.
+En una relación simbiótica, las personas dependen demasiado una de la otra, pierden su individualidad y viven "del otro y para el otro". En cambio, en el amor sano, podemos estar unidos a otra persona y al mismo tiempo conservar nuestra autonomía e individualidad. Este amor incluye cariño, responsabilidad, respeto y conocimiento mutuo.
+La trascendencia. Los seres humanos necesitamos crear y superar nuestra existencia. Esto puede hacerse de manera positiva mediante ideas, arte, amor, religión o creación, pero también puede hacerse de manera negativa mediante la destrucción y la agresividad.
+el arraigo consiste en sentir que el mundo es nuestro hogar y que pertenecemos a algún lugar. Una estrategia productiva implica desarrollar seguridad y poder salir de la protección de la madre. Una estrategia improductiva ocurre cuando la persona mantiene una dependencia excesiva y necesita constantemente ser cuidada.
+el sentido de identidad. Necesitamos construir una idea de quiénes somos y reconocer: Cuando una persona no desarrolla una identidad propia, puede buscar pertenecer a grupos o instituciones fuertes y seguirlos ciegamente. Fromm llama a esto identidad de rebaño.
+y el marco de orientación, funciona como un "mapa mental" que nos ayuda a comprender el mundo y encontrar nuestro camino. Sin él podemos sentirnos confundidos y depender demasiado de las ideas de los demás.
+2.  Formación y manifestación de la personalidad
+Para Fromm, la personalidad es el conjunto de cualidades psíquicas heredadas y adquiridas que hacen único a cada individuo.
+El carácter, por otro lado, se refiere principalmente a un sistema relativamente estable de impulsos adquiridos a lo largo de la vida.
+El carácter se desarrolla a partir de la relación entre la persona y su ambiente. Por eso, las condiciones sociales y culturales tienen una gran influencia.
+La personalidad se manifiesta en la forma en que una persona se relaciona con los demás, satisface sus necesidades, enfrenta la libertad, construye su identidad y toma decisiones
+3.  Características de la personalidad
+Fromm clasifica las orientaciones del carácter en productivas e improductivas.
+La productiva representa el esfuerzo por alcanzar la libertad, conservar la individualidad y lograr la autorrealización.
+Las improductivas no ayudan directamente a alcanzar estos objetivos. Fromm identifica cuatro:
+La receptiva, donde la persona siente que todo lo positivo viene de los demás. Puede ser amable y sensible, pero también pasiva y dependiente.
+La explotación, donde la persona intenta conseguir lo que quiere mediante la fuerza o la astucia. Puede ser activa y tener iniciativa, pero también puede ser agresiva y egocéntrica.
+La acaparadora, caracterizada por conservar y ahorrar, desconfiar de lo nuevo y apoyarse en rutinas. Puede ser ordenada y cuidadosa, pero también rígida y desconfiada.
+Y la comercial, donde la persona se considera a sí misma como una mercancía y siente que su valor depende de cómo puede "venderse" ante la sociedad. Puede ser adaptable y sociable, pero también puede tener dificultades para saber quién es realmente.
+4.  Ejemplo
+Un ejemplo sencillo sería una persona que cambia constantemente su forma de vestir, hablar o comportarse dependiendo del grupo con el que está porque necesita sentirse aceptada.
+Desde la teoría de Fromm, esto puede relacionarse con la orientación comercial y con la identidad de rebaño, porque la persona está construyendo su valor y su identidad principalmente a partir de cómo es percibida por los demás.
+En cambio, una orientación productiva implicaría poder relacionarse con los demás sin perder la propia individualidad.
+Conclusión
+Espero que te has gustado este video, nos vemos.`;
+
+if(!LIB.items.length){
+  const it={id:'s'+Date.now(),name:'Fromm 西文稿',text:SEED};
+  LIB.items.push(it);LIB.current=it.id;saveLib();
+}
+const cur=LIB.items.find(x=>x.id===LIB.current)||LIB.items[0];
+if(cur){LIB.current=cur.id;buildScript(cur.text);}
+
+setTimeout(()=>{
+  if(!paras.length)showHint('按 <b>E</b> 貼上稿子，或 <b>S</b> 開啟設定');
+  else showHint('按 <b>空白</b> 開始 · <b>PageDown</b> 跳段 · <b>+</b>/<b>−</b> 字級 · <b>T</b> 主題 · <b>S</b> 設定',5200);
+},700);
+</script>
+</body>
+</html>

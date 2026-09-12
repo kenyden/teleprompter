@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Teleprompter">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAACa0lEQVR42u3dsUkEQRSA4bnB9LQAA2ObEANBEzmwF0NBMLQXQUwUDMQmjA1s4CowMzoUZHdm3tvvK0Dl+fOcm11wtV4fFNilGgHiQByIA3EgDsSBOBAH4kAcIA7EgTgQB+JAHIgDcSAOxAHiQByIA3EgDsSBOBAH4kAcIA7EgTgQB+JAHIgDcSAOxMFy7U3+FbenJ8bay/7b+7ibQxl9TTv/qgx9OHPQNY5p/+DR/bdQRz4Q0Xf+K/9vBWcOxIE4EAfiQByIA3EgDsQB4qD0exPsx9fnh/lO7vDouNn3muXBmyxyJFKVEVGbIVdl6MOBlK5xWBvJlofNgTgQB4PG0fJ+hgYDtzloFYflkemStIa+/FdGCfdsxbWHB284cyAOEAfiQByIA3FQFvD2+evzg+HudHZxtejNoYwcw6nK0EejOJSRaVBVGfrwaQVxIA7EQZY4Al3vFLdh7TeHPjINqi75elgZHc4c+sgxHC8Y49MK4kAciANxIA7EQfGC8V9ub67N95+ju7svWS/BZJEjkaqMcePoPcmqDH04kNI1Dmsj2fKwORAH4mDUM8cYVzduO2wOwt1zWB6J5lmzPhdQRhn5BWPXHh684cyBOEAciANxIA7EQUn99vnm8jziOB6fXjQx7+YIWkbonzxGHNHnq4+54sgxWX1MH0emmerDpxXEgTgQBwHjyHSD5DZs+s2RY6bKmOvPSvTJKmPeM0fc+SqjeMEYn1YQB+JAHIgDcSAOxIE4QByIA3EgDsSBOBAH4kAciANxgDgQB+JAHIgDcSAOxIE4EAeIA3EgDsSBOBAH4kAciANxgDj41Tcj9X4DRQll4gAAAABJRU5ErkJggg==">
+<title>Teleprompter</title>
+<style>
+:root{
+  --font:"Segoe UI","Microsoft JhengHei","PingFang TC","Noto Sans TC","Helvetica Neue",Arial,sans-serif;
+  --bg:#0a0a0b; --fg:#e9e5dd; --dim:#7c7873; --rule:#ff4d4d; --head:#ffd479;
+  --ui:#131315; --ui2:#1c1c20; --bd:#2d2d33; --acc:#7aa2f7;
+  --size:64px; --lh:1.6; --col:34ch; --anchor:0.38;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);overflow:hidden;-webkit-font-smoothing:antialiased;overscroll-behavior:none;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+
+/* ---------- Escenario ---------- */
+#stage{position:fixed;inset:0;overflow:hidden}
+#stage.mirror{transform:scaleX(-1)}
+#script{
+  position:absolute;left:0;right:0;top:0;
+  padding-top:calc(var(--anchor) * 100vh);
+  padding-bottom:calc((1 - var(--anchor)) * 100vh);
+  will-change:transform;transform:translate3d(0,0,0);
+}
+#script .inner{max-width:var(--col);margin:0 auto;padding:0 44px;font-size:var(--size)}
+#script p{
+  font-size:var(--size);line-height:var(--lh);font-weight:400;
+  margin:0 0 .8em;letter-spacing:.004em;overflow-wrap:break-word;
+}
+#script p.head{font-weight:700;color:var(--head);margin-top:1.2em}
+
+#vig{position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(to bottom,var(--bg) 0%,transparent 16%,transparent 80%,var(--bg) 100%)}
+#rule{position:absolute;left:0;right:0;top:calc(var(--anchor)*100%);height:1px;
+  background:var(--rule);opacity:.45;pointer-events:none}
+#rule::before{content:"";position:absolute;left:36px;top:-6px;width:0;height:0;
+  border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid var(--rule);opacity:.85}
+
+/* ---------- HUD ---------- */
+#hud{position:absolute;left:0;right:0;bottom:var(--hudb);display:flex;gap:24px;justify-content:center;
+  padding:16px 20px;font-size:13px;color:var(--dim);
+  background:linear-gradient(to top,var(--bg) 45%,transparent);
+  transition:opacity .35s;pointer-events:none;font-variant-numeric:tabular-nums}
+#hud.hide{opacity:0}
+#hud b{color:var(--fg);font-weight:500}
+
+/* ---------- Aviso ---------- */
+#hint{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);
+  background:var(--ui2);border:1px solid var(--bd);border-radius:8px;
+  padding:12px 20px;font-size:13px;color:var(--dim);z-index:15;
+  opacity:0;transition:opacity .5s;pointer-events:none;white-space:nowrap}
+#hint.on{opacity:1}
+#hint b{color:var(--acc);font-weight:500}
+
+/* ---------- Panel ---------- */
+#panel{position:fixed;top:0;right:0;bottom:0;width:340px;background:var(--ui);
+  border-left:1px solid var(--bd);transform:translateX(101%);
+  transition:transform .26s cubic-bezier(.4,0,.2,1);overflow-y:auto;z-index:20;padding:20px 24px 60px}
+#panel.open{transform:translateX(0)}
+#panel h2{font-size:15px;font-weight:600;margin-bottom:16px;color:var(--fg);
+  display:flex;justify-content:space-between;align-items:center}
+#panel h2 span{font-size:12px;color:var(--dim);font-weight:400}
+.grp{margin-bottom:22px}
+.grp>label{display:block;font-size:11px;letter-spacing:.12em;color:var(--dim);
+  text-transform:uppercase;margin-bottom:9px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px;font-size:13px}
+.row input[type=range]{flex:1;accent-color:var(--acc);height:18px}
+.row .val{min-width:56px;text-align:right;color:var(--fg);font-variant-numeric:tabular-nums;font-size:12px}
+.seg{display:flex;border:1px solid var(--bd);border-radius:7px;overflow:hidden}
+.seg button{flex:1;background:none;border:none;color:var(--dim);padding:8px 4px;
+  font-size:12.5px;cursor:pointer;font-family:var(--font);transition:.15s}
+.seg button.on{background:var(--ui2);color:var(--acc)}
+.seg button:hover{color:var(--fg)}
+.btn{width:100%;background:var(--ui2);border:1px solid var(--bd);color:var(--fg);
+  padding:9px;border-radius:7px;font-size:13px;cursor:pointer;font-family:var(--font);transition:.15s}
+.btn:hover{border-color:var(--acc);color:var(--acc)}
+.btns{display:flex;gap:8px}
+.scriptlist{border:1px solid var(--bd);border-radius:7px;overflow:hidden;max-height:220px;overflow-y:auto}
+.scriptlist .it{padding:9px 11px;font-size:12.5px;cursor:pointer;border-bottom:1px solid var(--bd);
+  display:flex;justify-content:space-between;gap:8px;color:var(--dim)}
+.scriptlist .it:last-child{border-bottom:none}
+.scriptlist .it:hover{background:var(--ui2);color:var(--fg)}
+.scriptlist .it.on{color:var(--acc);background:var(--ui2)}
+.scriptlist .it .del{color:#c05a5a;opacity:.6;flex:0 0 auto}
+.scriptlist .it .del:hover{opacity:1}
+.keys{font-size:12.5px;line-height:2.05;color:var(--dim)}
+.keys kbd{background:var(--ui2);border:1px solid var(--bd);border-bottom-width:2px;
+  border-radius:4px;padding:1px 6px;font-family:inherit;font-size:11px;color:var(--fg);margin-right:6px}
+
+/* ---------- Editor ---------- */
+#editor{position:fixed;inset:0;background:var(--bg);z-index:30;display:none;flex-direction:column;padding:22px}
+#editor.open{display:flex}
+#editor .bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+#editor .bar h3{font-size:15px;font-weight:600}
+#editor .bar .r{display:flex;gap:9px}
+#editor textarea{flex:1;background:var(--ui);color:var(--fg);border:1px solid var(--bd);
+  border-radius:8px;padding:18px;font-family:var(--font);font-size:16px;line-height:1.75;
+  resize:none;outline:none;tab-size:2}
+#editor textarea:focus{border-color:var(--acc)}
+#editor .tip{font-size:12px;color:var(--dim);margin-top:10px;line-height:1.7}
+#editor .tip code{background:var(--ui2);padding:1px 5px;border-radius:3px;color:var(--acc)}
+
+/* ---------- Cuenta atrás ---------- */
+#cd{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.82);z-index:40;font-size:20vh;font-weight:700;color:#fff;
+  font-variant-numeric:tabular-nums}
+#cd.on{display:flex}
+
+/* ---------- 觸控控制列（iPad / 手機） ---------- */
+#touchbar{position:fixed;left:0;right:0;bottom:0;display:none;gap:7px;z-index:25;
+  padding:9px 11px calc(9px + env(safe-area-inset-bottom));
+  background:linear-gradient(to top,rgba(6,6,8,.97),rgba(6,6,8,.72));
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+#touchbar.on{display:flex}
+#touchbar button{flex:1;height:56px;border-radius:11px;color:#fff;font-family:var(--font);
+  background:rgba(255,255,255,.11);border:1px solid rgba(255,255,255,.17);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  -webkit-tap-highlight-color:transparent;cursor:pointer;padding:0}
+#touchbar button:active{background:rgba(255,255,255,.30)}
+#touchbar button i{font-style:normal;font-size:19px;line-height:1}
+#touchbar button b{font-weight:400;font-size:9.5px;opacity:.60;letter-spacing:.02em}
+body{--hudb:0px}
+@media (max-width:430px){
+  #panel{width:100%}
+  #touchbar button{height:52px;border-radius:9px}
+  #touchbar button b{font-size:9px}
+  #hud{gap:12px;font-size:11.5px;padding:11px 12px}
+  #hud .hs{display:none}
+  #editor{padding:14px}
+  #editor textarea{font-size:16px;padding:13px}
+}
+
+/* ---------- Tema claro ---------- */
+body.light{--bg:#f7f6f3;--fg:#1b1b1a;--dim:#8a857e;--ui:#ffffff;--ui2:#f0eee9;
+  --bd:#ddd9d2;--head:#a36a00;--rule:#d64545;--acc:#2f6fdd}
+body.amber{--bg:#0d0a06;--fg:#ffb84d;--dim:#8a713f;--ui:#151009;--ui2:#1f1810;
+  --bd:#3a2d19;--head:#ffd479;--rule:#ff8a3d;--acc:#ffb84d}
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div id="script"><div class="inner"></div></div>
+  <div id="vig"></div>
+  <div id="rule"></div>
+</div>
+
+<div id="hud">
+  <span><b id="hSpeed">16</b> líneas/min</span>
+  <span class="hs"><b id="hSize">64</b> px</span>
+  <span><b id="hPara">1 / 1</b> párr.</span>
+  <span><b id="hTime">00:00</b></span>
+  <span>Total <b id="hEta">—</b></span>
+</div>
+
+<div id="hint"></div>
+
+<div id="panel">
+  <h2>Ajustes <span>S</span></h2>
+
+  <div class="grp">
+    <label>Modo de reproducción</label>
+    <div class="seg" id="segMode">
+      <button data-m="scroll">Desplazamiento continuo</button>
+      <button data-m="step">Avance por párrafos</button>
+    </div>
+    <div class="row" style="margin-top:11px">
+      <span>Velocidad</span>
+      <input type="range" id="rSpeed" min="4" max="60" step="1">
+      <span class="val" id="vSpeed">16</span>
+    </div>
+    <div class="row">
+      <span>Duración objetivo</span>
+      <input type="text" id="tTarget" placeholder="5:30" style="flex:1;min-width:0;background:var(--ui2);border:1px solid var(--bd);border-radius:6px;color:var(--fg);padding:6px 9px;font-family:var(--font);font-size:12.5px;outline:none;text-align:center">
+      <button class="btn" id="bTarget" style="width:auto;padding:6px 13px">Aplicar</button>
+    </div>
+    <div class="row">
+      <span>Cuenta atrás</span>
+      <div class="seg" id="segCd" style="width:110px">
+        <button data-c="1">Sí</button>
+        <button data-c="0">No</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grp">
+    <label>Visualización</label>
+    <div class="row"><span>Tamaño</span><input type="range" id="rSize" min="24" max="160" step="2"><span class="val" id="vSize">64</span></div>
+    <div class="row"><span>Interlineado</span><input type="range" id="rLh" min="1.1" max="2.4" step="0.05"><span class="val" id="vLh">1.60</span></div>
+    <div class="row"><span>Ancho col.</span><input type="range" id="rCol" min="16" max="80" step="1"><span class="val" id="vCol">34</span></div>
+    <div class="row"><span>Línea guía</span><input type="range" id="rAnchor" min="10" max="70" step="1"><span class="val" id="vAnchor">38%</span></div>
+    <div class="row">
+      <span>Tema</span>
+      <div class="seg" id="segTheme" style="width:170px">
+        <button data-t="dark">Oscuro</button>
+        <button data-t="light">Claro</button>
+        <button data-t="amber">Ámbar</button>
+      </div>
+    </div>
+    <div class="row">
+      <span>Espejo</span>
+      <div class="seg" id="segMirror" style="width:110px">
+        <button data-x="1">Sí</button>
+        <button data-x="0">No</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grp">
+    <label>Guion</label>
+    <div class="btns" style="margin-bottom:9px">
+      <button class="btn" id="bEdit">Editar / Pegar</button>
+      <button class="btn" id="bImport">Importar .txt</button>
+    </div>
+    <div class="scriptlist" id="libList"></div>
+    <div class="btns" style="margin-top:9px">
+      <button class="btn" id="bNew">Nuevo guion</button>
+      <button class="btn" id="bReset">Borrar todo</button>
+    </div>
+  </div>
+
+  <div class="grp">
+    <label>Atajos</label>
+    <div class="keys">
+      <kbd>Espacio</kbd>Empezar / pausar (en párrafos = siguiente)<br>
+      <kbd>PageDown</kbd><kbd>PageUp</kbd>Párrafo siguiente / anterior<br>
+      <kbd>↑</kbd><kbd>↓</kbd>Velocidad (en párrafos = desplazar línea)<br>
+      <kbd>+</kbd><kbd>−</kbd>Tamaño de letra<br>
+      <kbd>R</kbd>Inicio　<kbd>F</kbd>Pantalla completa<br>
+      <kbd>T</kbd>Tema　<kbd>M</kbd>Espejo<br>
+      <kbd>E</kbd>Editar guion　<kbd>S</kbd>Ajustes　<kbd>H</kbd>Ocultar interfaz
+    </div>
+  </div>
+</div>
+
+<div id="editor">
+  <div class="bar">
+    <h3>Editar guion</h3>
+    <div class="r">
+      <button class="btn" id="eSave" style="width:auto;padding:8px 18px">Guardar</button>
+      <button class="btn" id="eClose" style="width:auto;padding:8px 18px">Cerrar</button>
+    </div>
+  </div>
+  <textarea id="eText" spellcheck="false" placeholder="Pega aquí tu guion…"></textarea>
+  <div class="tip">
+    Una línea = un párrafo. Las líneas que empiezan con <code>1. Título</code> se muestran como títulos.
+    <code>*texto*</code> se pone en negrita.
+    <br>Para archivos .docx: cópialos desde Word y pégalos aquí (el formato se elimina solo).
+  </div>
+</div>
+
+<div id="touchbar">
+  <button data-act="prev"><i>|◀</i><b>Anterior</b></button>
+  <button data-act="play"><i>❚❚</i><b>Reproducir / pausar</b></button>
+  <button data-act="next"><i>▶|</i><b>Siguiente</b></button>
+  <button data-act="slower"><i>−</i><b>Más lento</b></button>
+  <button data-act="faster"><i>+</i><b>Más rápido</b></button>
+</div>
+
+<div id="cd"></div>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ============ Estado ============ */
+const DEF={mode:'scroll',speed:30,size:64,lh:1.6,col:34,anchor:0.38,
+           theme:'dark',mirror:false,countdown:true};
+let S={...DEF};
+let paras=[],playing=false,offsetY=0,maxY=0,anim=null,elapsed=0,running=false,everRan=false;
+
+const stage=$('#stage'),script=$('#script'),inner=$('#script .inner');
+
+/* ============ Almacenamiento ============ */
+const KEY='tp.state.es.v1', LKEY='tp.lib.es.v1';
+let LIB={items:[],current:null};
+function saveState(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function loadState(){try{const r=localStorage.getItem(KEY);if(r)S={...DEF,...JSON.parse(r)};}catch(e){}}
+function saveLib(){try{localStorage.setItem(LKEY,JSON.stringify(LIB));}catch(e){}}
+function loadLib(){try{const r=localStorage.getItem(LKEY);if(r)LIB=JSON.parse(r);}catch(e){}}
+
+/* ============ Guion ============ */
+function buildScript(text){
+  inner.innerHTML='';
+  paras=text.split(/\n+/).map(s=>s.trim()).filter(Boolean);
+  paras.forEach(p=>{
+    const el=document.createElement('p');
+    if(/^\s*\d+\s*[\.、)]\s/.test(p)) el.className='head';
+    el.innerHTML=esc(p).replace(/\*([^*]+)\*/g,'<b>$1</b>');
+    inner.appendChild(el);
+  });
+  measure();offsetY=0;anim=null;apply();
+}
+function measure(){
+  maxY=Math.max(0,script.offsetHeight-stage.clientHeight);
+  offsetY=clamp(offsetY,0,maxY);
+}
+function apply(){script.style.transform='translate3d(0,'+(-offsetY)+'px,0)';}
+
+function calcCur(){
+  const ruleY=offsetY+stage.clientHeight*S.anchor;
+  let i=0;
+  for(let k=0;k<inner.children.length;k++){
+    if(inner.children[k].offsetTop<=ruleY) i=k; else break;
+  }
+  return i;
+}
+function gotoPara(i,smooth){
+  const n=inner.children.length;if(!n)return;
+  i=clamp(i,0,n-1);
+  const el=inner.children[i];
+  const to=clamp(el.offsetTop-stage.clientHeight*S.anchor,0,maxY);
+  if(smooth&&Math.abs(to-offsetY)>2){anim={from:offsetY,to,t:performance.now(),dur:330};}
+  else{offsetY=to;anim=null;apply();}
+}
+
+/* ============ Bucle principal ============ */
+let last=performance.now();
+function loop(t){
+  const dt=Math.min(0.1,(t-last)/1000);last=t;
+  if(anim){
+    const k=clamp((t-anim.t)/anim.dur,0,1),e=1-Math.pow(1-k,3);
+    offsetY=anim.from+(anim.to-anim.from)*e;
+    if(k>=1)anim=null;
+    apply();
+  }else if(playing&&S.mode==='scroll'){
+    const pxPerSec=S.speed*S.size*S.lh/60;
+    offsetY+=pxPerSec*dt;
+    if(offsetY>=maxY){offsetY=maxY;playing=false;showHint('Fin del guion');}
+    apply();
+  }
+  if(running){elapsed+=dt;}
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ============ HUD ============ */
+const fmt=s=>{s=Math.floor(s);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');};
+setInterval(()=>{
+  $('#hSpeed').textContent=S.speed;
+  $('#hSize').textContent=S.size;
+  $('#hPara').textContent=(calcCur()+1)+' / '+(paras.length||1);
+  $('#hTime').textContent=fmt(elapsed);
+  if(paras.length){
+    const tl=inner.scrollHeight/(S.size*S.lh);
+    $('#hEta').textContent=fmt(tl/S.speed*60);
+  }
+},180);
+
+let hintT=null;
+function showHint(msg,ms){
+  const h=$('#hint');h.innerHTML=msg;h.classList.add('on');
+  clearTimeout(hintT);hintT=setTimeout(()=>h.classList.remove('on'),ms||1600);
+}
+
+/* ============ Controles ============ */
+function setSize(v){S.size=clamp(v,24,160);document.documentElement.style.setProperty('--size',S.size+'px');
+  $('#rSize').value=S.size;$('#vSize').textContent=S.size;measure();apply();saveState();}
+function setLh(v){S.lh=clamp(v,1.1,2.4);document.documentElement.style.setProperty('--lh',S.lh);
+  $('#rLh').value=S.lh;$('#vLh').textContent=S.lh.toFixed(2);measure();apply();saveState();}
+function setCol(v){S.col=clamp(v,16,80);document.documentElement.style.setProperty('--col',S.col+'ch');
+  $('#rCol').value=S.col;$('#vCol').textContent=S.col;measure();apply();saveState();}
+function setAnchor(v){S.anchor=clamp(v,10,70)/100;document.documentElement.style.setProperty('--anchor',S.anchor);
+  $('#rAnchor').value=Math.round(S.anchor*100);$('#vAnchor').textContent=Math.round(S.anchor*100)+'%';
+  measure();apply();saveState();}
+function setSpeed(v){S.speed=clamp(v,4,60);$('#rSpeed').value=S.speed;$('#vSpeed').textContent=S.speed;saveState();}
+function applyTarget(str){
+  const t=String(str).trim();
+  const m=/^(\d+)\s*[:\uff1a]\s*(\d+)$/.exec(t);
+  let sec;
+  if(m) sec=(+m[1])*60+(+m[2]);
+  else if(/^\d+(\.[0-9]+)?$/.test(t)) sec=parseFloat(t)*60;
+  else{showHint('Escribe <b>5:30</b> o los minutos');return;}
+  const tl=inner.scrollHeight/(S.size*S.lh);
+  if(!tl){showHint('Aún no hay guion');return;}
+  setSpeed(Math.round(tl/(sec/60)));
+  showHint('Ajustado a <b>'+S.speed+'</b> líneas/min · total ≈ '+fmt(sec));
+}
+
+function setTheme(t){
+  S.theme=t;document.body.className=t==='dark'?'':t;
+  [...$('#segTheme').children].forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  saveState();
+}
+function setMirror(v){S.mirror=!!v;stage.classList.toggle('mirror',S.mirror);
+  [...$('#segMirror').children].forEach(b=>b.classList.toggle('on',(b.dataset.x==='1')===S.mirror));
+  saveState();}
+function setMode(m){
+  S.mode=m;playing=false;
+  [...$('#segMode').children].forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  saveState();
+}
+function setCd(v){S.countdown=!!v;
+  [...$('#segCd').children].forEach(b=>b.classList.toggle('on',(b.dataset.c==='1')===S.countdown));
+  saveState();}
+
+function reset(){playing=false;offsetY=0;anim=null;elapsed=0;running=false;everRan=false;apply();}
+
+/* ============ Cuenta atrás ============ */
+function countdown(cb){
+  const el=$('#cd');let n=3;el.textContent=n;el.classList.add('on');
+  const t=setInterval(()=>{
+    n--;
+    if(n>0)el.textContent=n;
+    else if(n===0)el.textContent='¡Acción!';
+    else{clearInterval(t);el.classList.remove('on');cb();}
+  },700);
+}
+
+/* ============ Teclado ============ */
+let editorOpen=false,panelOpen=false;
+
+document.addEventListener('keydown',e=>{
+  if(editorOpen){if(e.key==='Escape')closeEditor();return;}
+  if(/^(INPUT|TEXTAREA)$/.test(e.target.tagName)&&e.key!=='Escape')return;
+  const k=e.key;
+  if(k==='Enter'&&!panelOpen){e.preventDefault();onSpace();return;}
+  switch(k){
+    case ' ':e.preventDefault();onSpace();break;
+    case 'ArrowUp':e.preventDefault();onUpDown(-1);break;
+    case 'ArrowDown':e.preventDefault();onUpDown(1);break;
+    case 'PageDown':e.preventDefault();if(!(playing&&S.mode==='scroll'))gotoPara(calcCur()+1,true);break;
+    case 'PageUp':e.preventDefault();gotoPara(calcCur()-1,true);break;
+    case '+':case '=':setSize(S.size+8);showHint('Tamaño '+S.size);break;
+    case '-':case '_':setSize(S.size-8);showHint('Tamaño '+S.size);break;
+    case 't':case 'T':setTheme(S.theme==='dark'?'light':S.theme==='light'?'amber':'dark');break;
+    case 'm':case 'M':setMirror(!S.mirror);showHint('Espejo: '+(S.mirror?'sí':'no'));break;
+    case 'f':case 'F':toggleFull();break;
+    case 'r':case 'R':reset();showHint('Inicio del guion');break;
+    case 'e':case 'E':openEditor();break;
+    case 's':case 'S':togglePanel();break;
+    case 'h':case 'H':$('#hud').classList.toggle('hide');break;
+    case 'Home':offsetY=0;anim=null;apply();break;
+    case 'End':offsetY=maxY;anim=null;apply();break;
+    case 'Escape':if(panelOpen)togglePanel();break;
+  }
+});
+
+function onSpace(){
+  if(!paras.length){showHint('Aún no hay guion — pulsa <b>E</b> para pegar el texto');return;}
+  if(S.mode==='step'){gotoPara(calcCur()+1,true);return;}
+  if(!playing){
+    if(!everRan&&S.countdown){everRan=true;countdown(()=>{playing=true;running=true;});}
+    else{playing=true;running=true;keepAwake(true);}
+  }else{playing=false;keepAwake(false);}
+}
+function onUpDown(d){
+  if(S.mode==='step'){
+    offsetY=clamp(offsetY+d*S.size*S.lh,0,maxY);anim=null;apply();
+  }else{
+    setSpeed(S.speed+d);
+    showHint('Velocidad <b>'+S.speed+'</b> líneas/min');
+  }
+}
+
+/* ============ Pantalla completa / Panel / Editor ============ */
+function toggleFull(){
+  if(!document.fullscreenElement)document.documentElement.requestFullscreen().catch(()=>{});
+  else document.exitFullscreen();
+}
+function togglePanel(){panelOpen=!panelOpen;$('#panel').classList.toggle('open',panelOpen);renderLib();}
+function openEditor(){
+  editorOpen=true;$('#eText').value=LIB.items.find(x=>x.id===LIB.current)?.text||'';
+  $('#editor').classList.add('open');$('#eText').focus();
+}
+function closeEditor(){editorOpen=false;$('#editor').classList.remove('open');}
+function saveEditor(){
+  const t=$('#eText').value;
+  let it=LIB.items.find(x=>x.id===LIB.current);
+  if(!it){it={id:'s'+Date.now(),name:'Guion 1',text:t};LIB.items.push(it);LIB.current=it.id;}
+  else it.text=t;
+  saveLib();closeEditor();buildScript(t);elapsed=0;running=false;everRan=false;
+  showHint('Guardado y cargado · '+paras.length+' párrafos');
+}
+
+/* ============ Biblioteca de guiones ============ */
+function renderLib(){
+  const box=$('#libList');box.innerHTML='';
+  if(!LIB.items.length){box.innerHTML='<div class="it" style="cursor:default">(Sin guiones)</div>';return;}
+  LIB.items.forEach(it=>{
+    const d=document.createElement('div');
+    d.className='it'+(it.id===LIB.current?' on':'');
+    const n=(it.text.match(/\n+/g)||[]).length+1;
+    d.innerHTML='<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+
+      esc(it.name)+' <span style="opacity:.5">· '+n+' párr.</span></span><span class="del">Eliminar</span>';
+    d.onclick=ev=>{
+      if(ev.target.classList.contains('del')){
+        LIB.items=LIB.items.filter(x=>x.id!==it.id);
+        if(LIB.current===it.id){LIB.current=null;buildScript('');}
+        saveLib();renderLib();showHint('Eliminado');
+        return;
+      }
+      LIB.current=it.id;saveLib();buildScript(it.text);elapsed=0;running=false;everRan=false;
+      renderLib();showHint('Cargado: '+esc(it.name));
+    };
+    box.appendChild(d);
+  });
+}
+
+/* ============ Eventos ============ */
+$('#rSpeed').oninput=e=>setSpeed(+e.target.value);
+$('#rSize').oninput=e=>setSize(+e.target.value);
+$('#rLh').oninput=e=>setLh(+e.target.value);
+$('#rCol').oninput=e=>setCol(+e.target.value);
+$('#rAnchor').oninput=e=>setAnchor(+e.target.value);
+$('#segMode').onclick=e=>{if(e.target.dataset.m)setMode(e.target.dataset.m);};
+$('#segTheme').onclick=e=>{if(e.target.dataset.t)setTheme(e.target.dataset.t);};
+$('#segMirror').onclick=e=>{if(e.target.dataset.x)setMirror(e.target.dataset.x==='1');};
+$('#segCd').onclick=e=>{if(e.target.dataset.c)setCd(e.target.dataset.c==='1');};
+$('#bTarget').onclick=()=>applyTarget($('#tTarget').value);
+$('#tTarget').onkeydown=e=>{if(e.key==='Enter')applyTarget(e.target.value);};
+$('#bEdit').onclick=openEditor;
+$('#eSave').onclick=saveEditor;
+$('#eClose').onclick=closeEditor;
+$('#bNew').onclick=()=>{
+  const it={id:'s'+Date.now(),name:'Guion '+(LIB.items.length+1),text:''};
+  LIB.items.push(it);LIB.current=it.id;saveLib();renderLib();openEditor();
+};
+$('#bReset').onclick=()=>{
+  if(!confirm('¿Borrar todos los guiones? Esta acción no se puede deshacer.'))return;
+  LIB={items:[],current:null};saveLib();buildScript('');renderLib();showHint('Todo borrado');
+};
+$('#bImport').onclick=()=>{
+  const f=document.createElement('input');f.type='file';f.accept='.txt,text/plain';
+  f.onchange=()=>{
+    const file=f.files[0];if(!file)return;
+    const r=new FileReader();
+    r.onload=()=>{
+      const it={id:'s'+Date.now(),name:file.name.replace(/\.txt$/i,''),text:r.result};
+      LIB.items.push(it);LIB.current=it.id;saveLib();buildScript(r.result);
+      renderLib();showHint('Importado: '+esc(it.name));
+    };
+    r.readAsText(file,'UTF-8');
+  };
+  f.click();
+};
+$('#stage').addEventListener('wheel',e=>{
+  if(editorOpen)return;
+  e.preventDefault();
+  offsetY=clamp(offsetY+e.deltaY*(e.deltaMode?1:0.6),0,maxY);anim=null;apply();
+},{passive:false});
+window.addEventListener('resize',()=>{measure();apply();});
+document.addEventListener('fullscreenchange',()=>{});
+
+/* ============ Barra táctil (iPad / móvil) ============ */
+const isTouch = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+let wakeLock = null;
+
+async function keepAwake(on){
+  try{
+    if(on && 'wakeLock' in navigator && !wakeLock){
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', ()=>{ wakeLock = null; });
+    } else if(!on && wakeLock){
+      await wakeLock.release(); wakeLock = null;
+    }
+  }catch(e){ /* silencioso si no está soportado */ }
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible' && playing) keepAwake(true);
+});
+
+function setTouchbar(on){
+  document.querySelector('#touchbar').classList.toggle('on', on);
+  document.body.style.setProperty('--hudb', on ? '86px' : '0px');
+}
+if(isTouch){
+  setTouchbar(true);
+  $('#stage').addEventListener('click', ()=>{
+    if(document.querySelector('#editor').classList.contains('open')) return;
+    setTouchbar(!document.querySelector('#touchbar').classList.contains('on'));
+  });
+  document.querySelector('#touchbar').addEventListener('click', ev=>{
+    const b = ev.target.closest('button'); if(!b) return;
+    ev.stopPropagation();
+    switch(b.dataset.act){
+      case 'prev':   gotoPara(calcCur()-1, true); break;
+      case 'next':   gotoPara(calcCur()+1, true); break;
+      case 'play':   onSpace(); break;
+      case 'slower': setSpeed(S.speed-1); showHint('− '+S.speed); break;
+      case 'faster': setSpeed(S.speed+1); showHint('+ '+S.speed); break;
+    }
+  });
+  setInterval(()=>{
+    const b = document.querySelector('#touchbar button[data-act="play"] i');
+    if(b) b.textContent = playing ? '❚❚' : '▶';
+  }, 200);
+}
+
+/* ============ Inicio ============ */
+loadState();loadLib();
+setMode(S.mode);setTheme(S.theme);setMirror(S.mirror);setCd(S.countdown);
+setSpeed(S.speed);setSize(S.size);setLh(S.lh);setCol(S.col);setAnchor(Math.round(S.anchor*100));
+
+// 窄螢幕自動適配（僅首次使用，之後不覆寫使用者設定）
+if(isTouch && window.innerWidth < 520 && !S.fitted){
+  // Ajuste automático en pantallas pequeñas (solo la primera vez)
+  setSize(Math.max(28, Math.min(56, Math.round(window.innerWidth / 10))));
+  setAnchor(44);
+  S.fitted = true; saveState();
+}
+
+
+const cur=LIB.items.find(x=>x.id===LIB.current);
+if(cur){buildScript(cur.text);}
+
+setTimeout(()=>{
+  if(!paras.length)showHint('Pulsa <b>E</b> para pegar tu guion, o <b>S</b> para ajustes');
+  else showHint('Pulsa <b>ESPACIO</b> para empezar · <b>PageDown</b> salta párrafo · <b>+</b>/<b>−</b> tamaño · <b>T</b> tema · <b>S</b> ajustes',5200);
+},700);
+</script>
+</body>
+</html>
