@@ -1,6 +1,7 @@
 /* 提詞器 Service Worker — 離線可用 */
-const CACHE = 'teleprompter-v1';
-const ASSETS = ['./', './es.html', './apple-touch-icon.png', './icon-512.png'];
+const CACHE = 'teleprompter-v2';
+const ASSETS = ['./', './es.html', './apple-touch-icon.png', './icon-512.png',
+                './icon-maskable.png', './manifest.json', './manifest-es.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
