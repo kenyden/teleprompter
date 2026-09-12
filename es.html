@@ -61,6 +61,14 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font);overflow:hidde
 #hint.on{opacity:1}
 #hint b{color:var(--acc);font-weight:500}
 
+/* ---------- Estado vacío (táctil) ---------- */
+#emptyCta{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);display:none;
+  padding:20px 36px;border-radius:16px;background:rgba(255,255,255,.10);
+  border:1px solid rgba(255,255,255,.22);color:#fff;font-size:18px;z-index:14;
+  cursor:pointer;text-align:center;line-height:1.5;-webkit-tap-highlight-color:transparent}
+#emptyCta.on{display:block}
+#emptyCta:active{background:rgba(255,255,255,.24)}
+
 /* ---------- Panel ---------- */
 #panel{position:fixed;top:0;right:0;bottom:0;width:340px;background:var(--ui);
   border-left:1px solid var(--bd);transform:translateX(101%);
@@ -69,6 +77,8 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font);overflow:hidde
 #panel h2{font-size:15px;font-weight:600;margin-bottom:16px;color:var(--fg);
   display:flex;justify-content:space-between;align-items:center}
 #panel h2 span{font-size:12px;color:var(--dim);font-weight:400}
+#panelClose{cursor:pointer;font-size:15px;padding:6px 10px;margin:-6px -10px -6px 0;border-radius:8px;-webkit-tap-highlight-color:transparent}
+#panelClose:active{background:var(--ui2)}
 .grp{margin-bottom:22px}
 .grp>label{display:block;font-size:11px;letter-spacing:.12em;color:var(--dim);
   text-transform:uppercase;margin-bottom:9px}
@@ -162,10 +172,11 @@ body.amber{--bg:#0d0a06;--fg:#ffb84d;--dim:#8a713f;--ui:#151009;--ui2:#1f1810;
   <span>Total <b id="hEta">—</b></span>
 </div>
 
+<div id="emptyCta">Toca para pegar tu guion</div>
 <div id="hint"></div>
 
 <div id="panel">
-  <h2>Ajustes <span>S</span></h2>
+  <h2>Ajustes <span id="panelClose" title="Cerrar">✕</span></h2>
 
   <div class="grp">
     <label>Modo de reproducción</label>
@@ -264,6 +275,7 @@ body.amber{--bg:#0d0a06;--fg:#ffb84d;--dim:#8a713f;--ui:#151009;--ui2:#1f1810;
   <button data-act="next"><i>▶|</i><b>Siguiente</b></button>
   <button data-act="slower"><i>−</i><b>Más lento</b></button>
   <button data-act="faster"><i>+</i><b>Más rápido</b></button>
+  <button data-act="menu"><i>☰</i><b>Ajustes</b></button>
 </div>
 
 <div id="cd"></div>
@@ -301,6 +313,7 @@ function buildScript(text){
     inner.appendChild(el);
   });
   measure();offsetY=0;anim=null;apply();
+  if(typeof updateEmptyCta==='function') updateEmptyCta();
 }
 function measure(){
   maxY=Math.max(0,script.offsetHeight-stage.clientHeight);
@@ -473,8 +486,9 @@ function togglePanel(){panelOpen=!panelOpen;$('#panel').classList.toggle('open',
 function openEditor(){
   editorOpen=true;$('#eText').value=LIB.items.find(x=>x.id===LIB.current)?.text||'';
   $('#editor').classList.add('open');$('#eText').focus();
+  if(typeof updateEmptyCta==='function') updateEmptyCta();
 }
-function closeEditor(){editorOpen=false;$('#editor').classList.remove('open');}
+function closeEditor(){editorOpen=false;$('#editor').classList.remove('open'); if(typeof updateEmptyCta==='function') updateEmptyCta();}
 function saveEditor(){
   const t=$('#eText').value;
   let it=LIB.items.find(x=>x.id===LIB.current);
@@ -498,6 +512,7 @@ function renderLib(){
       if(ev.target.classList.contains('del')){
         LIB.items=LIB.items.filter(x=>x.id!==it.id);
         if(LIB.current===it.id){LIB.current=null;buildScript('');}
+        updateEmptyCta();
         saveLib();renderLib();showHint('Eliminado');
         return;
       }
@@ -518,6 +533,7 @@ $('#segMode').onclick=e=>{if(e.target.dataset.m)setMode(e.target.dataset.m);};
 $('#segTheme').onclick=e=>{if(e.target.dataset.t)setTheme(e.target.dataset.t);};
 $('#segMirror').onclick=e=>{if(e.target.dataset.x)setMirror(e.target.dataset.x==='1');};
 $('#segCd').onclick=e=>{if(e.target.dataset.c)setCd(e.target.dataset.c==='1');};
+$('#panelClose').onclick=()=>{ if(panelOpen) togglePanel(); };
 $('#bTarget').onclick=()=>applyTarget($('#tTarget').value);
 $('#tTarget').onkeydown=e=>{if(e.key==='Enter')applyTarget(e.target.value);};
 $('#bEdit').onclick=openEditor;
@@ -590,12 +606,28 @@ if(isTouch){
       case 'play':   onSpace(); break;
       case 'slower': setSpeed(S.speed-1); showHint('− '+S.speed); break;
       case 'faster': setSpeed(S.speed+1); showHint('+ '+S.speed); break;
+      case 'menu':   togglePanel(); break;
     }
   });
   setInterval(()=>{
     const b = document.querySelector('#touchbar button[data-act="play"] i');
     if(b) b.textContent = playing ? '❚❚' : '▶';
   }, 200);
+
+  // 長按「減速／加速」連續調整
+  let holdTO = null, holdIV = null;
+  const stopHold = ()=>{ clearTimeout(holdTO); clearInterval(holdIV); holdTO = holdIV = null; };
+  ['slower','faster'].forEach(act=>{
+    const btn = document.querySelector('#touchbar button[data-act="'+act+'"]');
+    if(!btn) return;
+    const dir = act === 'faster' ? 1 : -1;
+    const step = ()=>{ setSpeed(S.speed + dir); showHint((dir>0?'+ ':'− ')+S.speed); };
+    btn.addEventListener('pointerdown', ev=>{
+      ev.preventDefault();
+      holdTO = setTimeout(()=>{ holdIV = setInterval(step, 110); }, 450);
+    });
+    ['pointerup','pointercancel','pointerleave'].forEach(e=>btn.addEventListener(e, stopHold));
+  });
 }
 
 /* ============ Inicio ============ */
@@ -613,12 +645,22 @@ if(isTouch && window.innerWidth < 520 && !S.fitted){
 
 
 const cur=LIB.items.find(x=>x.id===LIB.current);
+updateEmptyCta();
 if(cur){buildScript(cur.text);}
 
 setTimeout(()=>{
   if(!paras.length)showHint('Pulsa <b>E</b> para pegar tu guion, o <b>S</b> para ajustes');
   else showHint('Pulsa <b>ESPACIO</b> para empezar · <b>PageDown</b> salta párrafo · <b>+</b>/<b>−</b> tamaño · <b>T</b> tema · <b>S</b> ajustes',5200);
 },700);
+
+/* ============ 空白狀態提示（觸控） ============ */
+function updateEmptyCta(){
+  const el = document.querySelector('#emptyCta');
+  if(!el) return;
+  el.classList.toggle('on', isTouch && paras.length === 0
+                     && !document.querySelector('#editor').classList.contains('open'));
+}
+document.querySelector('#emptyCta')?.addEventListener('click', openEditor);
 
 /* ============ 離線快取（僅 https 部署版） ============ */
 if('serviceWorker' in navigator && location.protocol === 'https:'){

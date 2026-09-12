@@ -1,5 +1,5 @@
 /* 提詞器 Service Worker — 離線可用 */
-const CACHE = 'teleprompter-v2';
+const CACHE = 'teleprompter-v3';
 const ASSETS = ['./', './es.html', './apple-touch-icon.png', './icon-512.png',
                 './icon-maskable.png', './manifest.json', './manifest-es.json'];
 
